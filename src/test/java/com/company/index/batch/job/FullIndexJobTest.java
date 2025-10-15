@@ -6,10 +6,13 @@ import org.springframework.batch.test.JobLauncherTestUtils;
 import org.springframework.batch.test.context.SpringBatchTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import com.company.index.config.TestBatchConfig;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -22,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 @SpringBatchTest
 @ActiveProfiles("h2")
+@Import(TestBatchConfig.class)  // 导入测试配置，使用同步JobLauncher
 @TestPropertySource(properties = {
     "spring.batch.job.enabled=false",  // 禁用自动启动
     "index.parallelism.chunkSize=10",
@@ -137,13 +141,37 @@ class FullIndexJobTest {
                 .addLong("timestamp", System.currentTimeMillis())
                 .toJobParameters();
 
+        System.out.println("\n====== 准备执行Job ======");
+        System.out.println("Job参数: " + jobParameters);
+        
         // 执行Job
         JobExecution jobExecution = jobLauncherTestUtils.launchJob(jobParameters);
 
+        // 打印Job执行信息
+        System.out.println("\n====== Job执行返回 ======");
+        System.out.println("JobExecution ID: " + jobExecution.getId());
+        System.out.println("Job状态: " + jobExecution.getStatus());
+        System.out.println("退出状态: " + jobExecution.getExitStatus());
+        
         // 验证Job执行状态
         assertNotNull(jobExecution, "JobExecution不应为null");
+        
+        // 如果状态不是COMPLETED，打印详细错误信息
+        if (jobExecution.getStatus() != BatchStatus.COMPLETED) {
+            System.err.println("\n⚠️  警告：Job执行失败！");
+            System.err.println("Job状态: " + jobExecution.getStatus());
+            System.err.println("退出消息: " + jobExecution.getExitStatus().getExitDescription());
+            
+            // 打印所有异常
+            for (Throwable e : jobExecution.getAllFailureExceptions()) {
+                System.err.println("异常: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+        
         assertEquals(BatchStatus.COMPLETED, jobExecution.getStatus(), 
-                    "Job应该成功完成，实际状态: " + jobExecution.getStatus());
+                    "Job应该成功完成，实际状态: " + jobExecution.getStatus() + 
+                    ", 退出消息: " + jobExecution.getExitStatus().getExitDescription());
         assertEquals(ExitStatus.COMPLETED, jobExecution.getExitStatus(), 
                     "Job退出状态应该是COMPLETED");
 
@@ -153,8 +181,12 @@ class FullIndexJobTest {
         System.out.println("Job状态: " + jobExecution.getStatus());
         System.out.println("开始时间: " + jobExecution.getStartTime());
         System.out.println("结束时间: " + jobExecution.getEndTime());
-        System.out.println("执行耗时: " + 
-            (jobExecution.getEndTime().getTime() - jobExecution.getStartTime().getTime()) + "ms");
+        
+        // 计算执行时间
+        if (jobExecution.getEndTime() != null && jobExecution.getStartTime() != null) {
+            Duration duration = Duration.between(jobExecution.getStartTime(), jobExecution.getEndTime());
+            System.out.println("执行耗时: " + duration.toMillis() + "ms");
+        }
 
         System.out.println("\n====== Step执行详情 ======");
         for (StepExecution stepExecution : jobExecution.getStepExecutions()) {

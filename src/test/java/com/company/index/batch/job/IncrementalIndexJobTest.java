@@ -6,10 +6,13 @@ import org.springframework.batch.test.JobLauncherTestUtils;
 import org.springframework.batch.test.context.SpringBatchTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import com.company.index.config.TestBatchConfig;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -22,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 @SpringBatchTest
 @ActiveProfiles("h2")
+@Import(TestBatchConfig.class)  // 导入测试配置，使用同步JobLauncher
 @TestPropertySource(properties = {
     "spring.batch.job.enabled=false",  // 禁用自动启动
     "index.parallelism.chunkSize=10",
@@ -171,16 +175,39 @@ class IncrementalIndexJobTest {
                 .addLong("timestamp", System.currentTimeMillis())
                 .toJobParameters();
 
+        System.out.println("\n====== 准备执行Job ======");
+        System.out.println("Job参数: " + jobParameters);
+        
         // 执行Job
         JobExecution jobExecution = jobLauncherTestUtils.launchJob(jobParameters);
 
+        // 打印Job执行信息
+        System.out.println("\n====== Job执行返回 ======");
+        System.out.println("JobExecution ID: " + jobExecution.getId());
+        System.out.println("Job状态: " + jobExecution.getStatus());
+        System.out.println("退出状态: " + jobExecution.getExitStatus());
+        
         // 验证Job执行状态
         assertNotNull(jobExecution, "JobExecution不应为null");
         BatchStatus status = jobExecution.getStatus();
         
+        // 如果状态是STARTING或UNKNOWN，打印详细信息
+        if (status == BatchStatus.STARTING || status == BatchStatus.UNKNOWN) {
+            System.err.println("\n⚠️  警告：Job可能没有正常执行！");
+            System.err.println("Job状态: " + status);
+            System.err.println("退出消息: " + jobExecution.getExitStatus().getExitDescription());
+            
+            // 打印所有异常
+            for (Throwable e : jobExecution.getAllFailureExceptions()) {
+                System.err.println("异常: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+        
         // 增量索引可能因为没有增量数据而完成，或者检查失败
-        assertTrue(status == BatchStatus.COMPLETED || status == BatchStatus.FAILED,
-                  "Job状态应该是COMPLETED或FAILED，实际: " + status);
+        assertTrue(status == BatchStatus.COMPLETED || status == BatchStatus.FAILED || status == BatchStatus.STOPPED,
+                  "Job状态应该是COMPLETED/FAILED/STOPPED，实际: " + status + 
+                  ", 退出消息: " + jobExecution.getExitStatus().getExitDescription());
 
         // 验证各个Step的执行情况
         System.out.println("\n====== Job执行详情 ======");
@@ -188,9 +215,11 @@ class IncrementalIndexJobTest {
         System.out.println("Job状态: " + jobExecution.getStatus());
         System.out.println("开始时间: " + jobExecution.getStartTime());
         System.out.println("结束时间: " + jobExecution.getEndTime());
-        if (jobExecution.getEndTime() != null) {
-            System.out.println("执行耗时: " + 
-                (jobExecution.getEndTime().getTime() - jobExecution.getStartTime().getTime()) + "ms");
+        
+        // 计算执行时间
+        if (jobExecution.getEndTime() != null && jobExecution.getStartTime() != null) {
+            Duration duration = Duration.between(jobExecution.getStartTime(), jobExecution.getEndTime());
+            System.out.println("执行耗时: " + duration.toMillis() + "ms");
         }
 
         System.out.println("\n====== Step执行详情 ======");

@@ -65,6 +65,10 @@ public class WriterFactory {
                 }
                 getQuickWriter.createIndexIfNotExists();
                 break;
+            case "file":
+                // 文件类型不需要创建索引，直接跳过
+                System.out.println("File writer: skip create index");
+                break;
             default:
                 throw new IllegalArgumentException("Unsupported index target type: " + indexTargetType);
         }
@@ -86,6 +90,11 @@ public class WriterFactory {
                 }
                 getQuickWriter.deleteIndex();
                 break;
+            case "file":
+                // 文件类型不需要删除索引，直接跳过
+                // 输出文件会在每次写入时覆盖
+                System.out.println("File writer: skip delete index (will overwrite on write)");
+                break;
             default:
                 throw new IllegalArgumentException("Unsupported index target type: " + indexTargetType);
         }
@@ -105,6 +114,15 @@ public class WriterFactory {
                     throw new UnsupportedOperationException("GetQuick writer not available in current profile");
                 }
                 return getQuickWriter.getIndexStats();
+            case "file":
+                // 文件类型返回模拟的统计信息
+                // 实际统计需要读取文件，这里返回空统计
+                java.util.Map<String, Object> fileStats = new java.util.HashMap<>();
+                fileStats.put("type", "file");
+                fileStats.put("documentCount", 0); // 文件模式无法获取准确计数
+                fileStats.put("message", "File writer does not support statistics");
+                System.out.println("File writer: return empty stats");
+                return fileStats;
             default:
                 throw new IllegalArgumentException("Unsupported index target type: " + indexTargetType);
         }
@@ -129,6 +147,9 @@ public class WriterFactory {
                     return false;
                 }
                 return getQuickWriter.isHealthy();
+            case "file":
+                // 文件类型总是返回健康
+                return fileWriter != null;
             default:
                 return false;
         }

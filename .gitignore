@@ -1,0 +1,256 @@
+# ========================================
+# Git Ignore File for Spring Boot Project
+# ========================================
+
+# ===== Maven =====
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# ===== IDE - IntelliJ IDEA =====
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+.idea_modules/
+atlassian-ide-plugin.xml
+com_crashlytics_export_strings.xml
+crashlytics.properties
+crashlytics-build.properties
+fabric.properties
+
+# ===== IDE - Eclipse =====
+.classpath
+.project
+.settings/
+.metadata
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.loadpath
+.recommenders
+.externalToolBuilders/
+*.launch
+*.pydevproject
+.cproject
+.factorypath
+.buildpath
+.target
+.tern-project
+.texlipse
+.springBeans
+.scala_dependencies
+.cache-main
+.worksheet
+
+# ===== IDE - VS Code =====
+.vscode/
+.code-workspace
+
+# ===== IDE - NetBeans =====
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# ===== Logs and Databases =====
+logs/
+*.log
+*.log.*
+log/
+*.log.gz
+*.log.zip
+
+# H2 Database files
+*.h2.db
+*.trace.db
+*.lock.db
+*.mv.db
+data/*.db
+data/*.sql
+data/*.csv
+
+# ===== Spring Boot =====
+spring-shell.log
+.spring-boot-devtools.properties
+
+# ===== Application Output =====
+output/
+*.json.bak
+index-output.json
+*.csv.bak
+
+# ===== Operating System =====
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ===== Java =====
+*.class
+*.jar
+!/.mvn/wrapper/maven-wrapper.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+
+# ===== Security & Credentials =====
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+*.keystore
+*.truststore
+application-secret.yml
+application-secret.properties
+secrets/
+credentials/
+
+# ===== Test & Coverage =====
+*.coverage
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+junit/
+test-output/
+test-results/
+jacoco.exec
+jacoco/
+
+# ===== Temporary Files =====
+*.tmp
+*.temp
+*.pid
+*.seed
+*.pid.lock
+.cache
+.sass-cache/
+
+# ===== Backup Files =====
+*.bak
+*.backup
+*.old
+*.orig
+*~
+
+# ===== Docker =====
+.dockerignore.bak
+docker-compose.override.yml
+
+# ===== Kubernetes =====
+k8s/*-secret.yaml
+k8s/secret-*.yaml
+
+# ===== Monitoring & Profiling =====
+*.hprof
+*.jfr
+*.bin
+*.prof
+IdeaSnapshots/
+
+# ===== Package Files =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== Build Tools =====
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+
+# ===== Other =====
+*.swp
+*.swo
+*.swn
+*~
+.project
+.metadata
+.recommenders/
+RemoteSystemsTempFiles/
+
+# ===== Project Specific =====
+# 保留文档但忽略临时生成的报告
+*-运行状态报告.md
+
+# 忽略脚本生成的临时文件
+scripts/*.tmp
+scripts/*.backup
+
+# 忽略本地调试配置
+*-local.yml
+*-local.properties
+
+# 忽略IDE运行配置（可选，根据团队需求调整）
+.run/
+
+# 忽略Maven wrapper（如果不需要提交）
+# .mvn/
+# mvnw
+# mvnw.cmd
+

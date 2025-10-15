@@ -1,0 +1,115 @@
+spring:
+  # H2 数据库配置（H2 环境）
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  # SQL 初始化配置
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:init-h2.sql
+      encoding: UTF-8
+  # H2 控制台配置
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+  # Spring Batch 配置
+  batch:
+    job:
+      enabled: true
+    jdbc:
+      initialize-schema: never  # 完全禁用自动初始化，使用我们的脚本
+  # Quartz 配置
+  quartz:
+    job-store-type: memory  # 使用内存存储，避免数据库表问题
+  # 禁用 Redis 和 Elasticsearch（H2 模式）
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration
+
+# H2 环境配置
+index:
+  jobs:
+    full:
+      cron: "0 0 3 ? * SUN"  # 每周日凌晨3点
+    incremental:
+      cron: "0 */5 * * * ?"  # 每5分钟
+  parallelism:
+    chunkSize: 100
+    threads: 2
+    partitions: 2
+  retry:
+    backoff:
+      initial: 1000
+      max: 30000
+      attempts: 3
+  check:
+    thresholds:
+      errorRate: 0.05
+      sampleSize: 1000
+  dataSource:
+    type: h2
+    table: sample_data
+    deltaTable: sample_data_changelog
+    timeColumn: updated_at
+  indexTarget:
+    type: file  # H2 模式使用文件输出
+    path: ./output
+    fileName: index-output.json
+  distributed:
+    lock:
+      type: memory  # H2 模式使用内存锁
+      timeout: 300
+      retry:
+        max: 3
+        interval: 5000
+  concurrency:
+    validation:
+      enabled: true
+      timeout: 300
+  idempotency:
+    validation:
+      enabled: true
+      timeout: 3600
+
+# 日志配置
+logging:
+  level:
+    com.company.index: DEBUG
+    org.springframework.batch: DEBUG
+    org.springframework.jdbc: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [%X{jobId},%X{stepId}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{jobId},%X{stepId},%X{partitionId}] %logger{36} - %msg%n"
+  file:
+    name: logs/application-h2.log
+    max-size: 100MB
+    max-history: 7
+
+# 监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,h2-console
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: false  # 禁用 Redis 健康检查
+    elasticsearch:
+      enabled: false  # 禁用 Elasticsearch 健康检查
+  metrics:
+    export:
+      prometheus:
+        enabled: true

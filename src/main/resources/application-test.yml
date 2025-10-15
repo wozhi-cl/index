@@ -1,0 +1,53 @@
+spring:
+  profiles:
+    active: test
+  datasource:
+    url: jdbc:mysql://localhost:3306/batch_test?useSSL=false&serverTimezone=UTC
+    username: ${DB_USERNAME:batch_user}
+    password: ${DB_PASSWORD:test123}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  batch:
+    job:
+      enabled: true
+    jdbc:
+      initialize-schema: always
+
+# 测试环境配置
+index:
+  jobs:
+    full:
+      cron: "0 0 2 ? * SUN"  # 每周日凌晨2点
+    incremental:
+      cron: "0 */3 * * * ?"  # 每3分钟
+  parallelism:
+    chunkSize: 500
+    threads: 4
+    partitions: 4
+  retry:
+    backoff:
+      initial: 2000
+      max: 30000
+      attempts: 5
+  check:
+    thresholds:
+      errorRate: 0.02
+      sampleSize: 2000
+  dataSource:
+    type: mysql
+    table: test_data
+    deltaTable: test_data_changelog
+  indexTarget:
+    type: elasticsearch
+    url: ${ES_URL:http://localhost:9200}
+    username: ${ES_USERNAME:elastic}
+    password: ${ES_PASSWORD:changeme}
+    indexName: test_index
+
+# 日志配置
+logging:
+  level:
+    com.company.index: INFO
+    org.springframework.batch: INFO

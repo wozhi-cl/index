@@ -1,0 +1,85 @@
+spring:
+  profiles:
+    active: prod
+  datasource:
+    url: jdbc:oracle:thin:@${DB_HOST:localhost}:${DB_PORT:1521}:${DB_SID:XE}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  batch:
+    job:
+      enabled: true
+    jdbc:
+      initialize-schema: never
+
+# 生产环境配置
+index:
+  jobs:
+    full:
+      cron: "0 0 3 ? * SUN"  # 每周日凌晨3点
+    incremental:
+      cron: "0 */5 * * * ?"  # 每5分钟
+  parallelism:
+    chunkSize: 1000
+    threads: 8
+    partitions: 8
+  retry:
+    backoff:
+      initial: 5000
+      max: 60000
+      attempts: 10
+  check:
+    thresholds:
+      errorRate: 0.01
+      sampleSize: 5000
+  dataSource:
+    type: oracle
+    table: ${DATA_TABLE:business_data}
+    deltaTable: ${DELTA_TABLE:business_data_changelog}
+    timeColumn: ${TIME_COLUMN:updated_at}
+  indexTarget:
+    type: elasticsearch
+    url: ${ES_URL}
+    username: ${ES_USERNAME}
+    password: ${ES_PASSWORD}
+    indexName: ${INDEX_NAME:prod_index}
+    clusterName: ${ES_CLUSTER:elasticsearch}
+  getquick:
+    url: ${GQ_URL}
+    username: ${GQ_USERNAME}
+    password: ${GQ_PASSWORD}
+    indexName: ${GQ_INDEX:prod_gq_index}
+
+# 生产日志配置
+logging:
+  level:
+    com.company.index: WARN
+    org.springframework.batch: WARN
+    org.springframework.jdbc: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{jobId},%X{stepId}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{jobId},%X{stepId},%X{partitionId}] %logger{36} - %msg%n"
+  file:
+    name: /var/log/index/application.log
+    max-size: 100MB
+    max-history: 30
+
+# 监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true

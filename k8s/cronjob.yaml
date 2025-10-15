@@ -1,0 +1,107 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: index-full-cronjob
+  namespace: index-system
+  labels:
+    app: index
+    job-type: full
+spec:
+  schedule: "0 3 * * 0"  # 每周日凌晨3点
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: index
+            job-type: full
+        spec:
+          containers:
+          - name: index-job
+            image: index:latest
+            command: ["java", "-jar", "app.jar", "--spring.batch.job.names=fullIndexJob"]
+            env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: JAVA_OPTS
+              value: "-Xms512m -Xmx1g"
+            envFrom:
+            - secretRef:
+                name: index-secrets
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "250m"
+              limits:
+                memory: "1Gi"
+                cpu: "500m"
+            volumeMounts:
+            - name: config-volume
+              mountPath: /app/config
+            - name: log-volume
+              mountPath: /var/log/index
+          volumes:
+          - name: config-volume
+            configMap:
+              name: index-config
+          - name: log-volume
+            emptyDir: {}
+          restartPolicy: OnFailure
+          activeDeadlineSeconds: 3600  # 1小时超时
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: index-incremental-cronjob
+  namespace: index-system
+  labels:
+    app: index
+    job-type: incremental
+spec:
+  schedule: "*/5 * * * *"  # 每5分钟
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: index
+            job-type: incremental
+        spec:
+          containers:
+          - name: index-job
+            image: index:latest
+            command: ["java", "-jar", "app.jar", "--spring.batch.job.names=incrementalIndexJob"]
+            env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: JAVA_OPTS
+              value: "-Xms256m -Xmx512m"
+            envFrom:
+            - secretRef:
+                name: index-secrets
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "250m"
+            volumeMounts:
+            - name: config-volume
+              mountPath: /app/config
+            - name: log-volume
+              mountPath: /var/log/index
+          volumes:
+          - name: config-volume
+            configMap:
+              name: index-config
+          - name: log-volume
+            emptyDir: {}
+          restartPolicy: OnFailure
+          activeDeadlineSeconds: 600  # 10分钟超时

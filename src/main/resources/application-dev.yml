@@ -1,0 +1,115 @@
+spring:
+  # MySQL 数据库配置（开发环境）
+  datasource:
+    url: jdbc:mysql://localhost:3307/index_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: root123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  # Spring Batch 配置
+  batch:
+    job:
+      enabled: true
+    jdbc:
+      initialize-schema: always
+  # Quartz 配置
+  quartz:
+    job-store-type: memory  # 使用内存存储，避免数据库表问题
+  # Redis 配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+# 开发环境配置
+index:
+  jobs:
+    full:
+      cron: "0 0 3 ? * SUN"  # 每周日凌晨3点
+    incremental:
+      cron: "0 */5 * * * ?"  # 每5分钟
+  parallelism:
+    chunkSize: 100
+    threads: 2
+    partitions: 2
+  retry:
+    backoff:
+      initial: 1000
+      max: 30000
+      attempts: 3
+  check:
+    thresholds:
+      errorRate: 0.05
+      sampleSize: 1000
+  dataSource:
+    type: mysql
+    table: sample_data
+    deltaTable: sample_data_changelog
+    timeColumn: updated_at
+  indexTarget:
+    type: elasticsearch
+    url: http://localhost:9200
+    username: elastic
+    password: changeme
+    indexName: dev_index
+  getquick:
+    url: ${GQ_URL:http://localhost:8080}
+    username: ${GQ_USERNAME:admin}
+    password: ${GQ_PASSWORD:admin123}
+    indexName: dev_gq_index
+  distributed:
+    lock:
+      type: database  # 或 redis
+      timeout: 300
+      retry:
+        max: 3
+        interval: 5000
+  concurrency:
+    validation:
+      enabled: true
+      timeout: 300
+  idempotency:
+    validation:
+      enabled: true
+      timeout: 3600
+
+# 日志配置
+logging:
+  level:
+    com.company.index: DEBUG
+    org.springframework.batch: DEBUG
+    org.springframework.jdbc: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [%X{jobId},%X{stepId}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{jobId},%X{stepId},%X{partitionId}] %logger{36} - %msg%n"
+  file:
+    name: logs/application.log
+    max-size: 100MB
+    max-history: 7
+
+# 监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: false  # 禁用 Redis 健康检查
+    elasticsearch:
+      enabled: false  # 禁用 Elasticsearch 健康检查
+  metrics:
+    export:
+      prometheus:
+        enabled: true

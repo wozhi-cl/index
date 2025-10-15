@@ -4,19 +4,27 @@
 CREATE TABLE IF NOT EXISTS sample_data (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    email VARCHAR(255),
-    data_value INTEGER,
+    description VARCHAR(500),
+    status VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 插入测试数据
-INSERT INTO sample_data (name, email, data_value) VALUES 
-('John Doe', 'john@example.com', 100),
-('Jane Smith', 'jane@example.com', 200),
-('Bob Johnson', 'bob@example.com', 300),
-('Alice Brown', 'alice@example.com', 400),
-('Charlie Wilson', 'charlie@example.com', 500);
+-- 变更日志表（用于增量索引）
+CREATE TABLE IF NOT EXISTS sample_data_changelog (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    data_id BIGINT NOT NULL,
+    operation VARCHAR(20) NOT NULL,
+    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 插入初始测试数据
+INSERT INTO sample_data (name, description, status) VALUES 
+('John Doe', 'Sample data 1', 'active'),
+('Jane Smith', 'Sample data 2', 'inactive'),
+('Bob Johnson', 'Sample data 3', 'active'),
+('Alice Brown', 'Sample data 4', 'inactive'),
+('Charlie Wilson', 'Sample data 5', 'active');
 
 -- ===== Spring Batch 元数据表（H2 版本）=====
 CREATE TABLE IF NOT EXISTS BATCH_JOB_INSTANCE  (

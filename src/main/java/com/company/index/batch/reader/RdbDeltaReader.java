@@ -52,8 +52,8 @@ public class RdbDeltaReader {
         LocalDateTime actualStartTime = startTime.minusMinutes(overlapMinutes);
         
         String sql = String.format(
-            "SELECT %s, %s, * FROM %s WHERE %s >= ? AND %s <= ? ORDER BY %s",
-            idColumn, timeColumn, tableName, timeColumn, timeColumn, timeColumn
+            "SELECT * FROM %s WHERE %s >= ? AND %s <= ? ORDER BY %s",
+            tableName, timeColumn, timeColumn, timeColumn
         );
 
         return new JdbcCursorItemReaderBuilder<SourceRecord>()
@@ -74,8 +74,8 @@ public class RdbDeltaReader {
      */
     public JdbcCursorItemReader<SourceRecord> createChangeTableReader(Long lastProcessedId) {
         String sql = String.format(
-            "SELECT %s, %s, change_type, * FROM %s WHERE id > ? ORDER BY id",
-            idColumn, timeColumn, deltaTableName
+            "SELECT * FROM %s WHERE id > ? ORDER BY id",
+            deltaTableName
         );
 
         return new JdbcCursorItemReaderBuilder<SourceRecord>()
@@ -95,16 +95,16 @@ public class RdbDeltaReader {
     public JdbcCursorItemReader<SourceRecord> createHybridReader(LocalDateTime startTime, 
                                                                LocalDateTime endTime) {
         String sql = String.format(
-            "SELECT t.%s, t.%s, 'UPDATE' as change_type, t.* " +
+            "SELECT t.*, 'UPDATE' as change_type " +
             "FROM %s t " +
             "WHERE t.%s >= ? AND t.%s <= ? " +
             "UNION ALL " +
-            "SELECT c.%s, c.%s, c.change_type, c.* " +
+            "SELECT c.* " +
             "FROM %s c " +
             "WHERE c.%s >= ? AND c.%s <= ? " +
             "ORDER BY %s",
-            idColumn, timeColumn, tableName, timeColumn, timeColumn,
-            idColumn, timeColumn, deltaTableName, timeColumn, timeColumn,
+            tableName, timeColumn, timeColumn,
+            deltaTableName, timeColumn, timeColumn,
             timeColumn
         );
 

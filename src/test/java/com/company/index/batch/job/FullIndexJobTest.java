@@ -90,7 +90,7 @@ class FullIndexJobTest {
      * 插入100条测试记录用于全量索引
      */
     private void initTestData() {
-        String sql = "INSERT INTO sample_data (name, email, data_value, created_at, updated_at) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO sample_data (name, description, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)";
         
         LocalDateTime now = LocalDateTime.now();
         int recordCount = 100;
@@ -98,11 +98,11 @@ class FullIndexJobTest {
         try {
             for (int i = 1; i <= recordCount; i++) {
                 String name = "TestUser_" + i;
-                String email = "user" + i + "@test.com";
-                int dataValue = i * 10;
+                String description = "这是第" + i + "条测试数据";
+                String status = i % 2 == 0 ? "active" : "inactive";
                 String timestamp = now.minusHours(recordCount - i).format(FORMATTER);
                 
-                jdbcTemplate.update(sql, name, email, dataValue, timestamp, timestamp);
+                jdbcTemplate.update(sql, name, description, status, timestamp, timestamp);
             }
             
             int count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sample_data", Integer.class);
@@ -332,7 +332,7 @@ class FullIndexJobTest {
     @DisplayName("8. 测试大数据量的Job执行")
     void testFullIndexJobWithLargeData() throws Exception {
         // 插入更多数据
-        String sql = "INSERT INTO sample_data (name, email, data_value, created_at, updated_at) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO sample_data (name, description, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)";
         LocalDateTime now = LocalDateTime.now();
         String timestamp = now.format(FORMATTER);
         
@@ -340,8 +340,8 @@ class FullIndexJobTest {
         for (int i = 101; i <= 1100; i++) {
             jdbcTemplate.update(sql, 
                 "TestUser_" + i, 
-                "user" + i + "@test.com", 
-                i * 10, 
+                "这是第" + i + "条大数据量测试数据", 
+                i % 2 == 0 ? "active" : "inactive",
                 timestamp, 
                 timestamp);
         }

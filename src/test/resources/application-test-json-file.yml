@@ -1,0 +1,48 @@
+# JSON → File 组合测试配置
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:init-h2.sql
+  
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      initialize-schema: always
+  
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration
+
+index:
+  parallelism:
+    chunkSize: 10
+    threads: 1
+  
+  dataSource:
+    type: json
+    table: sample_data
+    filePath: classpath:test-data/sample-data.json
+  
+  indexTarget:
+    type: file
+    path: ./target/test-output
+    fileName: json-to-file-output.json
+  
+  distributed:
+    lock:
+      type: memory
+
+logging:
+  level:
+    com.company.index: DEBUG
+

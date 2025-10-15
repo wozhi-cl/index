@@ -11,7 +11,7 @@ import org.springframework.web.client.RestTemplate;
  * GetQuick 客户端配置
  */
 @Configuration
-@Profile("!dev & !h2") // 开发环境和 H2 环境不配置 GetQuick
+@Profile("!dev & !h2 & !test-mysql-es & !test-mysql-file") // 开发环境、H2环境和测试环境不配置 GetQuick
 public class GetQuickClientConfig {
 
     @Value("${index.getquick.timeout:30000}")

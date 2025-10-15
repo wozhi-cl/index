@@ -1,0 +1,64 @@
+spring:
+  datasource:
+    # 使用Docker MySQL
+    url: jdbc:mysql://localhost:3307/index_db?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: index_user
+    password: index123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+  
+  batch:
+    jdbc:
+      initialize-schema: always  # 测试时自动创建Spring Batch表
+    job:
+      enabled: false
+  
+  # 禁用Quartz调度器（测试不需要）
+  quartz:
+    job-store-type: memory
+    auto-startup: false
+  
+  # 完全禁用Quartz自动配置
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.quartz.QuartzAutoConfiguration
+
+# 索引配置
+index:
+  # 数据源配置（MySQL）
+  dataSource:
+    type: mysql
+    table: sample_data
+    deltaTable: sample_data_changelog
+    timeColumn: updated_at
+  
+  # 索引目标配置（Elasticsearch）
+  indexTarget:
+    type: elasticsearch
+    indexName: test_index
+    batchSize: 100
+  
+  # 并行配置
+  parallelism:
+    chunkSize: 10
+    threads: 2
+  
+  # 增量索引配置
+  incremental:
+    overlapMinutes: 5
+
+# Elasticsearch配置
+elasticsearch:
+  uris: http://localhost:9200
+  connection-timeout: 5s
+  socket-timeout: 10s
+
+# 日志配置
+logging:
+  level:
+    com.company.index: DEBUG
+    org.springframework.batch: INFO
+    org.elasticsearch: DEBUG
+

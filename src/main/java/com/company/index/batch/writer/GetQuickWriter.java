@@ -24,7 +24,7 @@ import java.util.Map;
  * 支持批量写、删除操作
  */
 @Component
-@Profile("!dev & !h2") // 开发环境和 H2 环境不启用 GetQuick
+@Profile("!dev & !h2 & !test-mysql-es & !test-mysql-file") // 开发环境、H2环境和测试环境不启用 GetQuick
 public class GetQuickWriter implements ItemWriter<SourceRecord> {
 
     private final RestTemplate restTemplate;

@@ -53,23 +53,25 @@ CREATE TABLE IF NOT EXISTS job_execution_records (
     INDEX idx_start_time (start_time)
 );
 
--- 创建示例数据表
+-- 创建示例数据表（与H2保持一致）
 CREATE TABLE IF NOT EXISTS sample_data (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL,
+    description VARCHAR(500),
+    status VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_updated_at (updated_at)
+    INDEX idx_updated_at (updated_at),
+    INDEX idx_status (status)
 );
 
 -- 插入示例数据
-INSERT INTO sample_data (name, email) VALUES
-('John Doe', 'john@example.com'),
-('Jane Smith', 'jane@example.com'),
-('Bob Johnson', 'bob@example.com'),
-('Alice Brown', 'alice@example.com'),
-('Charlie Wilson', 'charlie@example.com');
+INSERT INTO sample_data (name, description, status) VALUES
+('John Doe', 'Sample data 1', 'active'),
+('Jane Smith', 'Sample data 2', 'inactive'),
+('Bob Johnson', 'Sample data 3', 'active'),
+('Alice Brown', 'Sample data 4', 'inactive'),
+('Charlie Wilson', 'Sample data 5', 'active');
 
 -- 创建变更日志表
 CREATE TABLE IF NOT EXISTS sample_data_changelog (

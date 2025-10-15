@@ -93,7 +93,7 @@ class IncrementalIndexJobTest {
      * 插入基础数据和最近更新的数据
      */
     private void initTestData() {
-        String sql = "INSERT INTO sample_data (name, email, data_value, created_at, updated_at) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO sample_data (name, description, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)";
         
         LocalDateTime now = LocalDateTime.now();
         
@@ -104,8 +104,8 @@ class IncrementalIndexJobTest {
                 String timestamp = oldTime.format(FORMATTER);
                 jdbcTemplate.update(sql, 
                     "OldUser_" + i, 
-                    "old" + i + "@test.com", 
-                    i * 10, 
+                    "旧数据_第" + i + "条", 
+                    i % 2 == 0 ? "active" : "inactive",
                     timestamp, 
                     timestamp);
             }
@@ -116,8 +116,8 @@ class IncrementalIndexJobTest {
                 String timestamp = recentTime.format(FORMATTER);
                 jdbcTemplate.update(sql, 
                     "NewUser_" + i, 
-                    "new" + i + "@test.com", 
-                    i * 10, 
+                    "新数据_第" + i + "条", 
+                    i % 2 == 0 ? "active" : "inactive",
                     timestamp, 
                     timestamp);
             }
@@ -310,15 +310,15 @@ class IncrementalIndexJobTest {
             "SELECT COUNT(*) FROM sample_data", Integer.class);
 
         // 添加新的增量数据
-        String sql = "INSERT INTO sample_data (name, email, data_value, created_at, updated_at) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO sample_data (name, description, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)";
         LocalDateTime now = LocalDateTime.now();
         String timestamp = now.format(FORMATTER);
         
         for (int i = 81; i <= 90; i++) {
             jdbcTemplate.update(sql, 
                 "IncrementalUser_" + i, 
-                "incr" + i + "@test.com", 
-                i * 10, 
+                "增量数据_第" + i + "条", 
+                i % 2 == 0 ? "active" : "inactive",
                 timestamp, 
                 timestamp);
         }
@@ -397,7 +397,7 @@ class IncrementalIndexJobTest {
     @DisplayName("8. 测试大量增量数据的处理")
     void testIncrementalIndexJobWithLargeIncrementalData() throws Exception {
         // 添加大量新数据
-        String sql = "INSERT INTO sample_data (name, email, data_value, created_at, updated_at) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO sample_data (name, description, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)";
         LocalDateTime now = LocalDateTime.now();
         String timestamp = now.format(FORMATTER);
         
@@ -405,8 +405,8 @@ class IncrementalIndexJobTest {
         for (int i = 101; i <= 600; i++) {
             jdbcTemplate.update(sql, 
                 "BulkUser_" + i, 
-                "bulk" + i + "@test.com", 
-                i * 10, 
+                "批量数据_第" + i + "条", 
+                i % 2 == 0 ? "active" : "inactive",
                 timestamp, 
                 timestamp);
         }

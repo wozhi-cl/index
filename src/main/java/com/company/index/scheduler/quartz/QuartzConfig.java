@@ -14,10 +14,10 @@ import java.util.Properties;
 /**
  * Quartz 集群配置
  * 支持 JDBC JobStore、misfire 策略、时区设置
- * 注意：H2 模式使用内存 JobStore，不加载此配置
+ * 注意：H2 模式和测试环境使用内存 JobStore，不加载此配置
  */
 @Configuration
-@org.springframework.context.annotation.Profile("!h2")
+@org.springframework.context.annotation.Profile("!h2 & !test-mysql-es & !test-mysql-file & !test-csv-file & !test-json-file & !test-h2-es")
 public class QuartzConfig {
 
     @Autowired

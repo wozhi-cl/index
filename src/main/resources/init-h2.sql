@@ -1,30 +1,57 @@
--- H2 完整初始化脚本（测试数据 + Spring Batch 表）
+-- H2 完整初始化脚本（连表测试数据 + Spring Batch 表）
 
--- ===== 测试数据表 =====
-CREATE TABLE IF NOT EXISTS sample_data (
+-- ===== 测试数据表（连表示例）=====
+
+-- 用户表
+CREATE TABLE IF NOT EXISTS users (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    description VARCHAR(500),
-    status VARCHAR(50),
+    phone VARCHAR(50),
+    email VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 变更日志表（用于增量索引）
-CREATE TABLE IF NOT EXISTS sample_data_changelog (
+-- 订单表
+CREATE TABLE IF NOT EXISTS orders (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    data_id BIGINT NOT NULL,
+    order_no VARCHAR(100) NOT NULL UNIQUE,
+    amount DECIMAL(10, 2) NOT NULL,
+    user_id BIGINT NOT NULL,
+    status VARCHAR(50) DEFAULT 'PENDING',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- 订单变更日志表（用于增量索引）
+CREATE TABLE IF NOT EXISTS orders_changelog (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
     operation VARCHAR(20) NOT NULL,
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 插入初始测试数据
-INSERT INTO sample_data (name, description, status) VALUES 
-('John Doe', 'Sample data 1', 'active'),
-('Jane Smith', 'Sample data 2', 'inactive'),
-('Bob Johnson', 'Sample data 3', 'active'),
-('Alice Brown', 'Sample data 4', 'inactive'),
-('Charlie Wilson', 'Sample data 5', 'active');
+-- 插入测试用户数据
+INSERT INTO users (name, phone, email) VALUES 
+('张三', '13800138001', 'zhangsan@example.com'),
+('李四', '13800138002', 'lisi@example.com'),
+('王五', '13800138003', 'wangwu@example.com'),
+('赵六', '13800138004', 'zhaoliu@example.com'),
+('钱七', '13800138005', 'qianqi@example.com');
+
+-- 插入测试订单数据（关联用户）
+INSERT INTO orders (order_no, amount, user_id, status) VALUES 
+('ORD001', 199.99, 1, 'COMPLETED'),
+('ORD002', 299.99, 1, 'COMPLETED'),
+('ORD003', 399.99, 2, 'PENDING'),
+('ORD004', 499.99, 3, 'COMPLETED'),
+('ORD005', 599.99, 2, 'CANCELLED'),
+('ORD006', 699.99, 4, 'COMPLETED'),
+('ORD007', 799.99, 5, 'PENDING'),
+('ORD008', 899.99, 3, 'COMPLETED'),
+('ORD009', 999.99, 1, 'COMPLETED'),
+('ORD010', 1099.99, 5, 'PENDING');
 
 -- ===== Spring Batch 元数据表（H2 版本）=====
 CREATE TABLE IF NOT EXISTS BATCH_JOB_INSTANCE  (

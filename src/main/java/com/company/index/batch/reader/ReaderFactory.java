@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
+
 /**
  * Reader 工厂类
  * 根据配置创建不同类型的 Reader
@@ -73,7 +75,9 @@ public class ReaderFactory {
         if ("mysql".equals(dataSourceType.toLowerCase()) || 
             "oracle".equals(dataSourceType.toLowerCase()) || 
             "h2".equals(dataSourceType.toLowerCase())) {
-            return rdbDeltaReader.createChangeTableReader(lastProcessedId);
+            // 使用最近一小时的变更日志
+            LocalDateTime since = LocalDateTime.now().minusHours(1);
+            return rdbDeltaReader.createChangeLogReader(since);
         } else {
             throw new IllegalArgumentException("Change table reader only supports RDB data sources");
         }

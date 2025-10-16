@@ -3,6 +3,9 @@ spring:
     name: index
   profiles:
     active: h2
+  config:
+    import:
+      - classpath:field-mapping.yml
   # Spring Batch 配置
   batch:
     job:

@@ -58,13 +58,15 @@ index:
       sampleSize: 1000
   dataSource:
     type: h2
-    table: sample_data
-    deltaTable: sample_data_changelog
+    table: orders
+    deltaTable: orders_changelog
     timeColumn: updated_at
+    idColumn: id
   indexTarget:
     type: file  # H2 模式使用文件输出
     path: ./output
     fileName: index-output.json
+    indexName: order_index  # 索引名称（对应 field-mapping.yml 中的配置）
   distributed:
     lock:
       type: memory  # H2 模式使用内存锁

@@ -84,8 +84,101 @@ public class IndexFileWriter implements ItemWriter<SourceRecord> {
         document.setTimestamp(record.getTimestamp());
         document.setSource(record.getSource());
         document.setVersion(record.getVersion());
-        document.setData(record.getData());
+        
+        // 规范化数据，处理 Oracle 特殊类型
+        java.util.Map<String, Object> data = record.getData();
+        java.util.Map<String, Object> normalizedData = normalizeData(data);
+        document.setData(normalizedData);
+        
         return document;
+    }
+    
+    /**
+     * 规范化数据，将 Oracle 特殊类型转换为标准 Java 类型
+     */
+    private java.util.Map<String, Object> normalizeData(java.util.Map<String, Object> data) {
+        if (data == null) {
+            return null;
+        }
+        
+        java.util.Map<String, Object> normalized = new java.util.HashMap<>();
+        for (java.util.Map.Entry<String, Object> entry : data.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            
+            // 处理 Oracle 特殊类型
+            Object normalizedValue = normalizeValue(value);
+            normalized.put(key, normalizedValue);
+        }
+        
+        return normalized;
+    }
+    
+    /**
+     * 规范化单个值
+     */
+    private Object normalizeValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        
+        // 处理 Oracle TIMESTAMP 类型
+        if (value.getClass().getName().equals("oracle.sql.TIMESTAMP")) {
+            try {
+                java.lang.reflect.Method method = value.getClass().getMethod("timestampValue");
+                return method.invoke(value);
+            } catch (Exception e) {
+                return value.toString();
+            }
+        }
+        
+        // 处理 Oracle DATE 类型
+        if (value.getClass().getName().equals("oracle.sql.DATE")) {
+            try {
+                java.lang.reflect.Method method = value.getClass().getMethod("timestampValue");
+                return method.invoke(value);
+            } catch (Exception e) {
+                return value.toString();
+            }
+        }
+        
+        // 处理 Oracle CLOB 类型
+        if (value.getClass().getName().equals("oracle.sql.CLOB")) {
+            try {
+                java.lang.reflect.Method getSubString = value.getClass().getMethod("getSubString", long.class, int.class);
+                java.lang.reflect.Method length = value.getClass().getMethod("length");
+                long len = (Long) length.invoke(value);
+                return getSubString.invoke(value, 1L, (int) len);
+            } catch (Exception e) {
+                return value.toString();
+            }
+        }
+        
+        // 处理 Oracle BLOB 类型
+        if (value.getClass().getName().equals("oracle.sql.BLOB")) {
+            try {
+                java.lang.reflect.Method getBytes = value.getClass().getMethod("getBytes", long.class, int.class);
+                java.lang.reflect.Method length = value.getClass().getMethod("length");
+                long len = (Long) length.invoke(value);
+                byte[] bytes = (byte[]) getBytes.invoke(value, 1L, (int) len);
+                return java.util.Base64.getEncoder().encodeToString(bytes);
+            } catch (Exception e) {
+                return value.toString();
+            }
+        }
+        
+        // 处理 Oracle NUMBER 类型
+        if (value.getClass().getName().equals("oracle.sql.NUMBER")) {
+            try {
+                java.lang.reflect.Method method = value.getClass().getMethod("bigDecimalValue");
+                return method.invoke(value);
+            } catch (Exception e) {
+                return value.toString();
+            }
+        }
+        
+        // 其他类型直接返回
+        return value;
     }
 
     /**

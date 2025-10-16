@@ -17,7 +17,7 @@ import java.util.Properties;
  * 注意：H2 模式和测试环境使用内存 JobStore，不加载此配置
  */
 @Configuration
-@org.springframework.context.annotation.Profile("!h2 & !test-mysql-es & !test-mysql-file & !test-csv-file & !test-json-file & !test-h2-es")
+@org.springframework.context.annotation.Profile("!h2 & !test-mysql-es & !test-mysql-file & !test-csv-file & !test-json-file & !test-h2-es & !test-oracle-es & !test-oracle-file")
 public class QuartzConfig {
 
     @Autowired

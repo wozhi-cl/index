@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.*;
 }, mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
 @TestPropertySource(properties = {
     "spring.batch.job.enabled=false",
+    "index.retry.maxAttempts=3",
     "index.dataSource.type=csv",
     "index.dataSource.csvPath=src/test/resources/test-data/sample-data.csv",
     "index.dataSource.csvFields=id,name,description,status,created_at,updated_at",

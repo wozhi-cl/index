@@ -1,0 +1,131 @@
+spring:
+  # Oracle 数据库配置（使用可插拔数据库）
+  datasource:
+    url: jdbc:oracle:thin:@localhost:1521/XEPDB1
+    username: system
+    password: oracle123
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1 FROM DUAL
+  
+  # Spring Batch 配置
+  batch:
+    job:
+      enabled: true
+    jdbc:
+      initialize-schema: always
+      table-prefix: BATCH_
+  
+  # Quartz 配置
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: always
+    properties:
+      org.quartz.jobStore.driverDelegateClass: org.quartz.impl.jdbcjobstore.oracle.OracleDelegate
+  
+  # Redis 配置
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+# Oracle 环境配置
+index:
+  jobs:
+    full:
+      cron: "0 0 3 ? * SUN"  # 每周日凌晨3点
+    incremental:
+      cron: "0 */5 * * * ?"  # 每5分钟
+  parallelism:
+    chunkSize: 100
+    threads: 4
+    partitions: 4
+  retry:
+    maxAttempts: 3  # 每个chunk写入失败后的最大重试次数
+    backoff:
+      initial: 1000
+      max: 30000
+      attempts: 3
+  check:
+    thresholds:
+      errorRate: 0.05
+      sampleSize: 1000
+  dataSource:
+    type: oracle
+    table: SAMPLE_DATA
+    deltaTable: SAMPLE_DATA_CHANGELOG
+    timeColumn: UPDATED_AT
+    idColumn: ID
+  indexTarget:
+    type: elasticsearch
+    url: http://localhost:9200
+    username: elastic
+    password: changeme
+    indexName: oracle_index
+  getquick:
+    url: ${GQ_URL:http://localhost:8080}
+    username: ${GQ_USERNAME:admin}
+    password: ${GQ_PASSWORD:admin123}
+    indexName: oracle_gq_index
+  distributed:
+    lock:
+      type: database  # 或 redis
+      timeout: 300
+      retry:
+        max: 3
+        interval: 5000
+  concurrency:
+    validation:
+      enabled: true
+      timeout: 300
+  idempotency:
+    validation:
+      enabled: true
+      timeout: 3600
+
+# 日志配置
+logging:
+  level:
+    com.company.index: DEBUG
+    org.springframework.batch: DEBUG
+    org.springframework.jdbc: INFO
+    oracle.jdbc: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [%X{jobId},%X{stepId}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{jobId},%X{stepId},%X{partitionId}] %logger{36} - %msg%n"
+  file:
+    name: logs/application.log
+    max-size: 100MB
+    max-history: 7
+
+# 监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: false
+    elasticsearch:
+      enabled: false
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+

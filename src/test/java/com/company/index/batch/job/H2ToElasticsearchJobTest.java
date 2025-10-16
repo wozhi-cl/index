@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 }, mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
 @TestPropertySource(properties = {
     "spring.batch.job.enabled=false",
+    "index.retry.maxAttempts=3",
     "index.dataSource.type=h2",
     "index.dataSource.table=sample_data",
     "index.indexTarget.type=elasticsearch",

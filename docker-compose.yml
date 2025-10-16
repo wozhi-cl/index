@@ -40,6 +40,26 @@ services:
       timeout: 10s
       retries: 5
 
+  # Oracle 数据库
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: index-oracle
+    environment:
+      ORACLE_PASSWORD: oracle123
+      APP_USER: index_user
+      APP_USER_PASSWORD: index123
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+      - ./sql/oracle_init.sql:/container-entrypoint-initdb.d/01_init.sql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
   # Redis (用于分布式锁)
   redis:
     image: redis:7-alpine
@@ -111,5 +131,6 @@ services:
 
 volumes:
   mysql_data:
+  oracle_data:
   es_data:
   redis_data:

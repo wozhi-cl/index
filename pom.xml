@@ -73,12 +73,11 @@
       <artifactId>spring-boot-starter-security</artifactId>
     </dependency>
 
-    <!-- Elasticsearch client placeholder; pin exact artifact when implementing writer -->
+    <!-- Elasticsearch client -->
     <dependency>
       <groupId>co.elastic.clients</groupId>
       <artifactId>elasticsearch-java</artifactId>
       <version>8.14.1</version>
-      <scope>provided</scope>
     </dependency>
 
     <!-- Database drivers -->
@@ -90,7 +89,12 @@
       <groupId>com.oracle.database.jdbc</groupId>
       <artifactId>ojdbc11</artifactId>
       <version>23.4.0.24.05</version>
-      <scope>provided</scope>
+    </dependency>
+
+    <!-- Apache HttpClient for RestTemplate -->
+    <dependency>
+      <groupId>org.apache.httpcomponents.client5</groupId>
+      <artifactId>httpclient5</artifactId>
     </dependency>
 
     <dependency>

@@ -162,11 +162,111 @@ public class ElasticsearchWriter implements ItemWriter<SourceRecord> {
         document.setSource(record.getSource());
         document.setVersion(record.getVersion());
         
-        // 转换数据映射
+        // 转换数据映射，处理 Oracle 特殊类型
         Map<String, Object> data = record.getData();
-        document.setData(data);
+        Map<String, Object> normalizedData = normalizeData(data);
+        document.setData(normalizedData);
         
         return document;
+    }
+    
+    /**
+     * 规范化数据，将 Oracle 特殊类型转换为标准 Java 类型
+     */
+    private Map<String, Object> normalizeData(Map<String, Object> data) {
+        if (data == null) {
+            return null;
+        }
+        
+        Map<String, Object> normalized = new HashMap<>();
+        for (Map.Entry<String, Object> entry : data.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            
+            // 处理 Oracle 特殊类型
+            Object normalizedValue = normalizeValue(value);
+            normalized.put(key, normalizedValue);
+        }
+        
+        return normalized;
+    }
+    
+    /**
+     * 规范化单个值
+     */
+    private Object normalizeValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        
+        // 处理 Oracle TIMESTAMP 类型
+        if (value instanceof oracle.sql.TIMESTAMP) {
+            try {
+                oracle.sql.TIMESTAMP timestamp = (oracle.sql.TIMESTAMP) value;
+                return timestamp.timestampValue(); // 转换为 java.sql.Timestamp
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        
+        // 处理 Oracle DATE 类型
+        if (value instanceof oracle.sql.DATE) {
+            try {
+                oracle.sql.DATE date = (oracle.sql.DATE) value;
+                return date.timestampValue(); // 转换为 java.sql.Timestamp
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        
+        // 处理 Oracle CLOB 类型
+        if (value instanceof oracle.sql.CLOB) {
+            try {
+                oracle.sql.CLOB clob = (oracle.sql.CLOB) value;
+                return clob.getSubString(1, (int) clob.length());
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        
+        // 处理 Oracle BLOB 类型（转换为 Base64 字符串）
+        if (value instanceof oracle.sql.BLOB) {
+            try {
+                oracle.sql.BLOB blob = (oracle.sql.BLOB) value;
+                byte[] bytes = blob.getBytes(1, (int) blob.length());
+                return java.util.Base64.getEncoder().encodeToString(bytes);
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        
+        // 处理 Oracle NUMBER 类型
+        if (value instanceof oracle.sql.NUMBER) {
+            try {
+                oracle.sql.NUMBER number = (oracle.sql.NUMBER) value;
+                return number.bigDecimalValue();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        
+        // 处理嵌套 Map
+        if (value instanceof Map) {
+            return normalizeData((Map<String, Object>) value);
+        }
+        
+        // 处理 List
+        if (value instanceof List) {
+            List<Object> list = (List<Object>) value;
+            List<Object> normalizedList = new ArrayList<>();
+            for (Object item : list) {
+                normalizedList.add(normalizeValue(item));
+            }
+            return normalizedList;
+        }
+        
+        // 其他类型直接返回
+        return value;
     }
 
     /**
@@ -218,6 +318,64 @@ public class ElasticsearchWriter implements ItemWriter<SourceRecord> {
         
         Map<String, Object> stats = new HashMap<>();
         stats.put("documentCount", docCount);
+        stats.put("indexName", indexName);
         return stats;
+    }
+    
+    /**
+     * 索引结束处理
+     * 1. 刷新索引，确保所有数据可见
+     * 2. 强制合并段（可选，提升查询性能）
+     * 3. 如果需要蓝绿部署，可以在这里切换别名
+     * 
+     * 注意：当前简化实现，只刷新索引
+     * 生产环境如需蓝绿部署，可以实现别名切换逻辑
+     */
+    public void finishIndex() throws Exception {
+        try {
+            // 检查索引是否存在
+            boolean exists = elasticsearchClient.indices().exists(e -> e.index(indexName)).value();
+            
+            if (!exists) {
+                System.out.println("索引 " + indexName + " 不存在，跳过结束处理");
+                return;
+            }
+            
+            System.out.println("开始 Elasticsearch 索引结束处理: " + indexName);
+            
+            // 1. 刷新索引，确保所有数据可见
+            elasticsearchClient.indices().refresh(r -> r.index(indexName));
+            System.out.println("  ✓ 索引已刷新，所有数据已可见");
+            
+            // 2. 可选：强制合并段（生产环境建议在低峰期执行）
+            // elasticsearchClient.indices().forcemerge(f -> f
+            //     .index(indexName)
+            //     .maxNumSegments(1)
+            // );
+            // System.out.println("  ✓ 索引段已合并");
+            
+            // 3. 可选：如果使用蓝绿部署，在这里切换别名
+            // 示例代码（需要在创建索引时使用带版本号的名称）：
+            //
+            // String aliasName = "my_index";  // 应用使用的别名
+            // String newIndexName = indexName;  // 当前新建的索引（如：my_index_v20251016）
+            //
+            // // 原子性切换别名
+            // elasticsearchClient.indices().updateAliases(u -> u
+            //     .actions(a -> a
+            //         .add(add -> add.index(newIndexName).alias(aliasName))
+            //     )
+            // );
+            // System.out.println("  ✓ 别名已切换到新索引");
+            //
+            // // 删除旧索引（保留最近N个版本）
+            // var allIndices = elasticsearchClient.indices().get(g -> g.index(aliasName + "_v*"));
+            // // ... 删除逻辑
+            
+            System.out.println("Elasticsearch 索引结束处理完成: " + indexName);
+            
+        } catch (Exception e) {
+            throw new RuntimeException("Elasticsearch 索引结束处理失败", e);
+        }
     }
 }

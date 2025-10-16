@@ -24,7 +24,7 @@ import java.util.Map;
  * 支持批量写、删除操作
  */
 @Component
-@Profile("!dev & !h2 & !test-mysql-es & !test-mysql-file") // 开发环境、H2环境和测试环境不启用 GetQuick
+@Profile("!dev & !h2 & !test-mysql-es & !test-mysql-file & !test-oracle-es & !test-oracle-file & !test-h2-es & !test-csv-file & !test-json-file") // 开发环境、H2环境和所有测试环境不启用 GetQuick
 public class GetQuickWriter implements ItemWriter<SourceRecord> {
 
     private final RestTemplate restTemplate;
@@ -280,6 +280,43 @@ public class GetQuickWriter implements ItemWriter<SourceRecord> {
             return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
             return false;
+        }
+    }
+    
+    /**
+     * 发布索引
+     * 使索引对外生效（GetQuick 特定操作）
+     */
+    public void publishIndex() throws Exception {
+        try {
+            System.out.println("发布 GetQuick 索引: " + indexName);
+            
+            // 构建发布请求
+            Map<String, Object> publishRequest = new HashMap<>();
+            publishRequest.put("indexName", indexName);
+            publishRequest.put("status", "published");
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBasicAuth(username, password);
+            
+            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(publishRequest, headers);
+            
+            String url = gqUrl + "/api/index/" + indexName + "/publish";
+            ResponseEntity<Map> response = restTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                requestEntity,
+                Map.class
+            );
+            
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new RuntimeException("Failed to publish GetQuick index: " + response.getStatusCode());
+            }
+            
+            System.out.println("GetQuick 索引发布成功: " + indexName);
+        } catch (Exception e) {
+            throw new RuntimeException("发布 GetQuick 索引失败", e);
         }
     }
 }

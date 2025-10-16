@@ -75,6 +75,23 @@ public class IndexDocument {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        IndexDocument that = (IndexDocument) o;
+        return java.util.Objects.equals(id, that.id) &&
+                java.util.Objects.equals(type, that.type) &&
+                java.util.Objects.equals(timestamp, that.timestamp) &&
+                java.util.Objects.equals(source, that.source) &&
+                java.util.Objects.equals(version, that.version);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(id, type, timestamp, source, version);
+    }
+
+    @Override
     public String toString() {
         return "IndexDocument{" +
                 "id='" + id + '\'' +

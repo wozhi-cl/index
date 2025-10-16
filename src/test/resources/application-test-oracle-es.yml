@@ -1,0 +1,69 @@
+spring:
+  datasource:
+    # 使用Docker Oracle（连接到可插拔数据库）
+    url: jdbc:oracle:thin:@localhost:1521/XEPDB1
+    username: system
+    password: oracle123
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      connection-timeout: 30000
+      connection-test-query: SELECT 1 FROM DUAL
+  
+  batch:
+    jdbc:
+      initialize-schema: always  # 测试时自动创建Spring Batch表
+      table-prefix: BATCH_
+    job:
+      enabled: false
+  
+  # 禁用Quartz调度器（测试不需要）
+  quartz:
+    job-store-type: memory
+    auto-startup: false
+  
+  # 完全禁用Quartz自动配置
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.quartz.QuartzAutoConfiguration
+
+# 索引配置
+index:
+  # 数据源配置（Oracle）
+  dataSource:
+    type: oracle
+    table: SAMPLE_DATA
+    deltaTable: SAMPLE_DATA_CHANGELOG
+    timeColumn: UPDATED_AT
+    idColumn: ID
+  
+  # 索引目标配置（Elasticsearch）
+  indexTarget:
+    type: elasticsearch
+    url: http://localhost:9200
+    indexName: oracle_test_index
+  
+  # 并行配置
+  parallelism:
+    chunkSize: 10
+    threads: 2
+  
+  # 增量索引配置
+  incremental:
+    overlapMinutes: 5
+
+# Elasticsearch配置
+elasticsearch:
+  uris: http://localhost:9200
+  connection-timeout: 5s
+  socket-timeout: 10s
+
+# 日志配置
+logging:
+  level:
+    com.company.index: DEBUG
+    org.springframework.batch: INFO
+    oracle.jdbc: DEBUG
+    org.elasticsearch: DEBUG
+

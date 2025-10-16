@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
     "spring.batch.job.enabled=false",  // 禁用自动启动
     "index.parallelism.chunkSize=10",
     "index.parallelism.threads=2",
+    "index.retry.maxAttempts=3",
     "index.dataSource.type=h2",
     "index.dataSource.table=sample_data",
     "index.indexTarget.type=file",
@@ -256,13 +257,13 @@ class FullIndexJobTest {
     }
 
     /**
-     * 测试单个Step的执行 - checkStep
+     * 测试单个Step的执行 - fullCheckStep
      */
     @Test
     @Order(5)
     @DisplayName("5. 测试检查步骤(fullCheckStep)")
     void testCheckStep() throws Exception {
-        JobExecution jobExecution = jobLauncherTestUtils.launchStep("checkStep");
+        JobExecution jobExecution = jobLauncherTestUtils.launchStep("fullCheckStep");
         
         StepExecution stepExecution = jobExecution.getStepExecutions().iterator().next();
         
@@ -277,20 +278,61 @@ class FullIndexJobTest {
     }
 
     /**
-     * 测试单个Step的执行 - switchStep
+     * 测试单个Step的执行 - finishStep
      */
     @Test
     @Order(6)
-    @DisplayName("6. 测试切换步骤(switchStep)")
-    void testSwitchStep() throws Exception {
-        JobExecution jobExecution = jobLauncherTestUtils.launchStep("switchStep");
+    @DisplayName("6. 测试结束处理步骤(finishStep)")
+    void testFinishStep() throws Exception {
+        JobExecution jobExecution = jobLauncherTestUtils.launchStep("finishStep");
         
         StepExecution stepExecution = jobExecution.getStepExecutions().iterator().next();
         
         assertEquals(BatchStatus.COMPLETED, stepExecution.getStatus(), 
-                    "switchStep应该成功完成");
+                    "finishStep应该成功完成");
         
-        System.out.println("✅ switchStep执行成功");
+        System.out.println("✅ finishStep执行成功");
+        System.out.println("   状态: " + stepExecution.getStatus());
+    }
+
+    /**
+     * 测试单个Step的执行 - retryDecisionStep
+     */
+    @Test
+    @Order(7)
+    @DisplayName("7. 测试重试决策步骤(retryDecisionStep)")
+    void testRetryDecisionStep() throws Exception {
+        // 先初始化重试计数为0
+        JobExecution jobExecution = jobLauncherTestUtils.launchStep("retryDecisionStep");
+        
+        StepExecution stepExecution = jobExecution.getStepExecutions().iterator().next();
+        
+        // 第一次调用应该返回RETRY（因为重试次数为0 < 3）
+        assertEquals(BatchStatus.COMPLETED, stepExecution.getStatus(), 
+                    "retryDecisionStep应该成功完成");
+        assertEquals("RETRY", stepExecution.getExitStatus().getExitCode(), 
+                    "第一次调用应该返回RETRY");
+        
+        System.out.println("✅ retryDecisionStep执行成功");
+        System.out.println("   状态: " + stepExecution.getStatus());
+        System.out.println("   退出码: " + stepExecution.getExitStatus().getExitCode());
+    }
+
+    /**
+     * 测试单个Step的执行 - rebuildStep
+     */
+    @Test
+    @Order(8)
+    @DisplayName("8. 测试重建步骤(rebuildStep)")
+    void testRebuildStep() throws Exception {
+        JobExecution jobExecution = jobLauncherTestUtils.launchStep("rebuildStep");
+        
+        StepExecution stepExecution = jobExecution.getStepExecutions().iterator().next();
+        
+        assertEquals(BatchStatus.COMPLETED, stepExecution.getStatus(), 
+                    "rebuildStep应该成功完成");
+        
+        System.out.println("✅ rebuildStep执行成功");
         System.out.println("   状态: " + stepExecution.getStatus());
     }
 
@@ -298,8 +340,8 @@ class FullIndexJobTest {
      * 测试空数据集的Job执行
      */
     @Test
-    @Order(7)
-    @DisplayName("7. 测试空数据集的Job执行")
+    @Order(9)
+    @DisplayName("9. 测试空数据集的Job执行")
     void testFullIndexJobWithEmptyData() throws Exception {
         // 清空所有数据
         jdbcTemplate.execute("DELETE FROM sample_data");

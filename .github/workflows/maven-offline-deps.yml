@@ -1,0 +1,41 @@
+name: Maven Offline Dependencies (Windows)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: C:\Users\runneradmin\.m2\repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Download dependencies (go-offline)
+        run: mvn dependency:go-offline -B
+
+      - name: Compress local Maven repo
+        shell: pwsh
+        run: |
+          $m2Path = "C:\Users\runneradmin\.m2"
+          Compress-Archive -Path "$m2Path\repository" -DestinationPath "$m2Path\m2-repo.zip"
+
+      - name: Upload offline dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-maven-repo
+          path: C:\Users\runneradmin\.m2\m2-repo.zip

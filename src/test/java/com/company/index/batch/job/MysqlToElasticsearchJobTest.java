@@ -32,7 +32,8 @@ import static org.junit.jupiter.api.Assertions.*;
     DirtiesContextTestExecutionListener.class
 }, mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
 @TestPropertySource(properties = {
-    "spring.batch.job.enabled=false"
+    "spring.batch.job.enabled=false",
+    "index.retry.maxAttempts=3"
 })
 public class MysqlToElasticsearchJobTest extends AbstractJobTest {
 

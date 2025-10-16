@@ -129,6 +129,36 @@ public class WriterFactory {
     }
 
     /**
+     * 索引结束处理：完成索引构建后的最终化操作
+     * - Elasticsearch: 刷新索引，确保数据可见（可选：切换别名）
+     * - GetQuick: 发布索引，使其对外生效
+     * - File: 输出完成信息
+     */
+    public void finishIndex() throws Exception {
+        switch (indexTargetType.toLowerCase()) {
+            case "elasticsearch":
+            case "es":
+                elasticsearchWriter.finishIndex();
+                System.out.println("Elasticsearch: 索引已刷新并完成");
+                break;
+            case "getquick":
+            case "gq":
+                if (getQuickWriter == null) {
+                    throw new UnsupportedOperationException("GetQuick writer not available in current profile");
+                }
+                getQuickWriter.publishIndex();
+                System.out.println("GetQuick: 索引已发布");
+                break;
+            case "file":
+                // 文件类型不需要额外处理，输出完成信息
+                System.out.println("File: 数据已成功写入文件");
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported index target type: " + indexTargetType);
+        }
+    }
+
+    /**
      * 健康检查
      */
     public boolean isHealthy() {

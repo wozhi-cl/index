@@ -44,7 +44,12 @@ import org.junit.platform.suite.api.SuiteDisplayName;
     
     // MySQL → 各种目标 (需要Docker: docker-compose up -d mysql elasticsearch)
     MysqlToElasticsearchJobTest.class,  // MySQL → Elasticsearch (真实环境)
-    MysqlToFileJobTest.class             // MySQL → File
+    MysqlToFileJobTest.class,             // MySQL → File
+
+
+    // Oracle → 各种目标 (需要Docker: docker-compose up -d oracle elasticsearch)
+    OracleToElasticsearchJobTest.class,  // Oracle → Elasticsearch (真实环境)
+    OracleToFileJobTest.class             // Oracle → File
 })
 public class AllCombinationsTestSuite {
     // 此类仅用于组织测试套件，不需要任何代码

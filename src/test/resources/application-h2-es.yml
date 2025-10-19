@@ -1,0 +1,52 @@
+# H2 到 Elasticsearch 的测试配置
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+    
+  h2:
+    console:
+      enabled: true
+      
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:org/springframework/batch/core/schema-h2.sql
+
+# Elasticsearch 配置
+elasticsearch:
+  hosts: localhost:9200
+  username: 
+  password: 
+
+# 索引配置
+index:
+  dataSource:
+    type: h2
+    table: orders
+    
+  indexTarget:
+    type: elasticsearch
+    indexName: h2-orders-index
+    batchSize: 1000
+    
+  parallelism:
+    chunkSize: 100
+    
+  retry:
+    maxAttempts: 3
+
+# 日志配置
+logging:
+  level:
+    com.company.index: DEBUG
+    org.springframework.batch: INFO
+    org.springframework.jdbc: DEBUG
+    co.elastic.clients: DEBUG

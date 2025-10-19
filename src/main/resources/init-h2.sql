@@ -32,26 +32,30 @@ CREATE TABLE IF NOT EXISTS orders_changelog (
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 插入测试用户数据
-INSERT INTO users (name, phone, email) VALUES 
-('张三', '13800138001', 'zhangsan@example.com'),
-('李四', '13800138002', 'lisi@example.com'),
-('王五', '13800138003', 'wangwu@example.com'),
-('赵六', '13800138004', 'zhaoliu@example.com'),
-('钱七', '13800138005', 'qianqi@example.com');
+-- 插入测试用户数据（如果不存在）
+MERGE INTO users (id, name, phone, email) KEY(id) VALUES
+(1, '张三', '13800138001', 'zhangsan@example.com'),
+(2, '李四', '13800138002', 'lisi@example.com'),
+(3, '王五', '13800138003', 'wangwu@example.com'),
+(4, '赵六', '13800138004', 'zhaoliu@example.com'),
+(5, '钱七', '13800138005', 'qianqi@example.com');
+
+-- 清理订单相关数据并重新插入
+DELETE FROM orders_changelog WHERE 1=1;
+DELETE FROM orders WHERE 1=1;
 
 -- 插入测试订单数据（关联用户）
-INSERT INTO orders (order_no, amount, user_id, status) VALUES 
-('ORD001', 199.99, 1, 'COMPLETED'),
-('ORD002', 299.99, 1, 'COMPLETED'),
-('ORD003', 399.99, 2, 'PENDING'),
-('ORD004', 499.99, 3, 'COMPLETED'),
-('ORD005', 599.99, 2, 'CANCELLED'),
-('ORD006', 699.99, 4, 'COMPLETED'),
-('ORD007', 799.99, 5, 'PENDING'),
-('ORD008', 899.99, 3, 'COMPLETED'),
-('ORD009', 999.99, 1, 'COMPLETED'),
-('ORD010', 1099.99, 5, 'PENDING');
+INSERT INTO orders (order_no, amount, user_id, status, created_at, updated_at) VALUES 
+('ORD001', 199.99, 1, 'COMPLETED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('ORD002', 299.99, 1, 'COMPLETED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('ORD003', 399.99, 2, 'PENDING', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('ORD004', 499.99, 3, 'COMPLETED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('ORD005', 599.99, 2, 'CANCELLED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('ORD006', 699.99, 4, 'COMPLETED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('ORD007', 799.99, 5, 'PENDING', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('ORD008', 899.99, 3, 'COMPLETED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('ORD009', 999.99, 1, 'COMPLETED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+('ORD010', 1099.99, 5, 'PENDING', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- ===== Spring Batch 元数据表（H2 版本）=====
 CREATE TABLE IF NOT EXISTS BATCH_JOB_INSTANCE  (

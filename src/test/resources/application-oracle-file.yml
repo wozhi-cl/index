@@ -1,0 +1,42 @@
+# Oracle 到 File 的测试配置
+spring:
+  datasource:
+    url: jdbc:oracle:thin:@localhost:1521/XEPDB1
+    driver-class-name: oracle.jdbc.OracleDriver
+    username: index_user
+    password: index123
+    
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:org/springframework/batch/core/schema-oracle.sql
+
+# 索引配置
+index:
+  dataSource:
+    type: oracle
+    table: ORDERS
+    
+  indexTarget:
+    type: file
+    path: ./output/oracle-file
+    fileName: oracle-file-output.json
+    format: json
+    
+  parallelism:
+    chunkSize: 100
+    
+  retry:
+    maxAttempts: 3
+
+# 日志配置
+logging:
+  level:
+    com.company.index: DEBUG
+    org.springframework.batch: INFO
+    org.springframework.jdbc: DEBUG

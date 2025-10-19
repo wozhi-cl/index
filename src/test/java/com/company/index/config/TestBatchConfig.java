@@ -3,6 +3,7 @@ package com.company.index.config;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.launch.support.TaskExecutorJobLauncher;
 import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.batch.test.JobLauncherTestUtils;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -28,6 +29,17 @@ public class TestBatchConfig {
         launcher.setTaskExecutor(new SyncTaskExecutor());
         launcher.afterPropertiesSet();
         return launcher;
+    }
+
+    /**
+     * 提供 JobLauncherTestUtils Bean 用于测试
+     */
+    @Bean
+    public JobLauncherTestUtils jobLauncherTestUtils(JobLauncher jobLauncher, JobRepository jobRepository) {
+        JobLauncherTestUtils utils = new JobLauncherTestUtils();
+        utils.setJobLauncher(jobLauncher);
+        utils.setJobRepository(jobRepository);
+        return utils;
     }
 }
 

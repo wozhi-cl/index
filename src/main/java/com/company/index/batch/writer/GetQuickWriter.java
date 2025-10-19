@@ -1,161 +1,164 @@
 package com.company.index.batch.writer;
 
-import com.company.index.common.model.IndexDocument;
 import com.company.index.common.model.SourceRecord;
+import com.company.index.common.model.IndexDocument;
+import com.company.index.common.service.RecordBuilderService;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.context.annotation.Profile;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * GetQuick Search 批量写入器
- * 支持批量写、删除操作
+ * GetQuick 批量写入器
+ * 支持 SourceRecord 和 IndexDocument 写入
  */
 @Component
-@Profile("!dev & !h2 & !test-mysql-es & !test-mysql-file & !test-oracle-es & !test-oracle-file & !test-h2-es & !test-csv-file & !test-json-file") // 开发环境、H2环境和所有测试环境不启用 GetQuick
-public class GetQuickWriter implements ItemWriter<SourceRecord> {
+public class GetQuickWriter implements DataWriter, ItemWriter<IndexDocument> {
 
-    private final RestTemplate restTemplate;
-    private final String gqUrl;
+    private final String baseUrl;
+    private final String indexName;
     private final String username;
     private final String password;
-    private final String indexName;
     private final int batchSize;
 
-    public GetQuickWriter(RestTemplate restTemplate,
-                         @Value("${index.getquick.url:http://localhost:8080}") String gqUrl,
-                         @Value("${index.getquick.username:admin}") String username,
-                         @Value("${index.getquick.password:admin123}") String password,
-                         @Value("${index.getquick.indexName:default_gq_index}") String indexName,
-                         @Value("${index.getquick.batchSize:1000}") int batchSize) {
-        this.restTemplate = restTemplate;
-        this.gqUrl = gqUrl;
+    @Autowired
+    private RecordBuilderService recordBuilderService;
+    
+    private final HttpClient httpClient;
+    private long totalWritten = 0;
+    private long totalErrors = 0;
+
+    public GetQuickWriter(String baseUrl, String indexName, String username, String password, int batchSize) {
+        this.baseUrl = baseUrl;
+        this.indexName = indexName;
         this.username = username;
         this.password = password;
-        this.indexName = indexName;
         this.batchSize = batchSize;
+        
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(30))
+                .build();
     }
 
     @Override
-    public void write(Chunk<? extends SourceRecord> chunk) throws Exception {
-        List<Map<String, Object>> batchOperations = new ArrayList<>();
+    public void write(Chunk<? extends IndexDocument> chunk) throws Exception {
+        writeIndexData(chunk.getItems());
+    }
 
-        for (SourceRecord record : chunk) {
-            Map<String, Object> operation = createOperation(record);
-            batchOperations.add(operation);
+    @Override
+    public void writeSourceData(List<? extends SourceRecord> items) throws Exception {
+        // 将 SourceRecord 转换为 IndexDocument 后写入
+        List<IndexDocument> indexDocs = new ArrayList<>();
+        for (SourceRecord sourceRecord : items) {
+            IndexDocument indexDoc = recordBuilderService.convertToIndexDocument(sourceRecord, indexName);
+            indexDocs.add(indexDoc);
+        }
+        writeIndexData(indexDocs);
+    }
 
-            // 批量提交
-            if (batchOperations.size() >= batchSize) {
-                executeBatchOperations(batchOperations);
-                batchOperations.clear();
+    @Override
+    public void writeIndexData(List<? extends IndexDocument> items) throws Exception {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+
+        // 构建批量数据
+        List<Map<String, Object>> documents = new ArrayList<>();
+        for (IndexDocument doc : items) {
+            try {
+                Map<String, Object> documentData = recordBuilderService.convertIndexDocumentToMap(doc);
+                documentData.put("_id", doc.getKeyValue());
+                documentData.put("_operation", doc.getOperation().toString());
+                documentData.put("_timestamp", doc.getTimestamp());
+                documents.add(documentData);
+            } catch (Exception e) {
+                System.err.println("Error preparing document: " + e.getMessage());
+                totalErrors++;
             }
         }
 
-        // 执行剩余操作
-        if (!batchOperations.isEmpty()) {
-            executeBatchOperations(batchOperations);
+        if (!documents.isEmpty()) {
+            sendBatchToGetQuick(documents);
         }
     }
 
-    /**
-     * 根据记录类型创建操作
-     */
-    private Map<String, Object> createOperation(SourceRecord record) {
-        String type = record.getType();
-        String id = record.getId();
+    @Override
+    public ItemWriter<SourceRecord> createSourceWriter() {
+        return new ItemWriter<SourceRecord>() {
+            @Override
+            public void write(Chunk<? extends SourceRecord> chunk) throws Exception {
+                writeSourceData(chunk.getItems());
+            }
+        };
+    }
 
-        Map<String, Object> operation = new HashMap<>();
-        operation.put("id", id);
-        operation.put("type", type);
-        operation.put("index", indexName);
+    @Override
+    public ItemWriter<IndexDocument> createIndexWriter() {
+        return this;
+    }
 
-        switch (type.toUpperCase()) {
-            case "INSERT":
-            case "UPDATE":
-                operation.put("action", "index");
-                operation.put("document", convertToIndexDocument(record));
-                break;
-            case "DELETE":
-                operation.put("action", "delete");
-                break;
-            default:
-                // 默认为 Upsert 操作
-                operation.put("action", "upsert");
-                operation.put("document", convertToIndexDocument(record));
-                break;
-        }
-
-        return operation;
+    @Override
+    public void finishWrite() throws Exception {
+        System.out.println("========================================");
+        System.out.println("GetQuick 写入完成:");
+        System.out.println("  索引: " + indexName);
+        System.out.println("  总写入: " + totalWritten);
+        System.out.println("  总错误: " + totalErrors);
+        System.out.println("========================================");
     }
 
     /**
-     * 转换 SourceRecord 为 IndexDocument
+     * 发送批量数据到 GetQuick
      */
-    private IndexDocument convertToIndexDocument(SourceRecord record) {
-        IndexDocument document = new IndexDocument();
-        document.setId(record.getId());
-        document.setType(record.getType());
-        document.setTimestamp(record.getTimestamp());
-        document.setSource(record.getSource());
-        document.setVersion(record.getVersion());
-        document.setData(record.getData());
-        return document;
-    }
-
-    /**
-     * 执行批量操作
-     */
-    private void executeBatchOperations(List<Map<String, Object>> operations) throws Exception {
+    private void sendBatchToGetQuick(List<Map<String, Object>> documents) throws Exception {
         try {
-            // 构建批量请求
-            Map<String, Object> batchRequest = new HashMap<>();
-            batchRequest.put("operations", operations);
-            batchRequest.put("index", indexName);
-
-            // 设置请求头
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBasicAuth(username, password);
-
-            // 创建请求实体
-            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(batchRequest, headers);
-
-            // 发送批量请求
-            String url = gqUrl + "/api/batch";
-            ResponseEntity<Map> response = restTemplate.exchange(
-                url,
-                HttpMethod.POST,
-                requestEntity,
-                Map.class
-            );
-
-            // 检查响应状态
-            if (response.getStatusCode().is2xxSuccessful()) {
-                Map<String, Object> responseBody = response.getBody();
-                if (responseBody != null && responseBody.containsKey("errors")) {
-                    List<Map<String, Object>> errors = (List<Map<String, Object>>) responseBody.get("errors");
-                    if (errors != null && !errors.isEmpty()) {
-                        throw new RuntimeException("GetQuick batch operation failed with errors: " + errors);
-                    }
-                }
-            } else {
-                throw new RuntimeException("GetQuick batch operation failed with status: " + response.getStatusCode());
+            String url = baseUrl + "/api/index/" + indexName + "/batch";
+            
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("documents", documents);
+            requestBody.put("batchSize", batchSize);
+            
+            String jsonBody = convertToJson(requestBody);
+            
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody));
+            
+            // 添加认证头
+            if (username != null && !username.isEmpty()) {
+                String auth = username + ":" + password;
+                String encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.getBytes());
+                requestBuilder.header("Authorization", "Basic " + encodedAuth);
             }
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to execute GetQuick batch operations", e);
+            
+            HttpRequest request = requestBuilder.build();
+            
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                totalWritten += documents.size();
+                System.out.println("Successfully sent " + documents.size() + " documents to GetQuick");
+                } else {
+                System.err.println("GetQuick API error: " + response.statusCode() + " - " + response.body());
+                totalErrors += documents.size();
+            }
+            
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Error sending batch to GetQuick: " + e.getMessage());
+            totalErrors += documents.size();
+            throw new Exception("Failed to send batch to GetQuick", e);
         }
     }
 
@@ -164,55 +167,33 @@ public class GetQuickWriter implements ItemWriter<SourceRecord> {
      */
     public void createIndexIfNotExists() throws Exception {
         try {
-            // 检查索引是否存在
-            String url = gqUrl + "/api/index/" + indexName;
-            HttpHeaders headers = new HttpHeaders();
-            headers.setBasicAuth(username, password);
-            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
-
-            ResponseEntity<Map> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                requestEntity,
-                Map.class
-            );
-
-            if (response.getStatusCode().is2xxSuccessful()) {
-                // 索引已存在
-                return;
+            String url = baseUrl + "/api/index/" + indexName;
+            
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Content-Type", "application/json")
+                    .PUT(HttpRequest.BodyPublishers.ofString("{}"));
+            
+            // 添加认证头
+            if (username != null && !username.isEmpty()) {
+                String auth = username + ":" + password;
+                String encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.getBytes());
+                requestBuilder.header("Authorization", "Basic " + encodedAuth);
             }
-
-        } catch (Exception e) {
-            // 索引不存在，创建索引
-            createIndex();
-        }
-    }
-
-    /**
-     * 创建索引
-     */
-    private void createIndex() throws Exception {
-        Map<String, Object> indexConfig = new HashMap<>();
-        indexConfig.put("name", indexName);
-        indexConfig.put("shards", 1);
-        indexConfig.put("replicas", 0);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBasicAuth(username, password);
-
-        HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(indexConfig, headers);
-
-        String url = gqUrl + "/api/index";
-        ResponseEntity<Map> response = restTemplate.exchange(
-            url,
-            HttpMethod.POST,
-            requestEntity,
-            Map.class
-        );
-
-        if (!response.getStatusCode().is2xxSuccessful()) {
-            throw new RuntimeException("Failed to create GetQuick index: " + response.getStatusCode());
+            
+            HttpRequest request = requestBuilder.build();
+            
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                System.out.println("Created/verified index: " + indexName);
+                } else {
+                System.err.println("GetQuick index creation error: " + response.statusCode() + " - " + response.body());
+            }
+            
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Error creating index in GetQuick: " + e.getMessage());
+            throw new Exception("Failed to create index in GetQuick", e);
         }
     }
 
@@ -221,102 +202,92 @@ public class GetQuickWriter implements ItemWriter<SourceRecord> {
      */
     public void deleteIndex() throws Exception {
         try {
-            String url = gqUrl + "/api/index/" + indexName;
-            HttpHeaders headers = new HttpHeaders();
-            headers.setBasicAuth(username, password);
-            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
-
-            restTemplate.exchange(
-                url,
-                HttpMethod.DELETE,
-                requestEntity,
-                Map.class
-            );
-        } catch (Exception e) {
-            // 索引可能不存在，忽略错误
+            String url = baseUrl + "/api/index/" + indexName;
+            
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .DELETE();
+            
+            // 添加认证头
+            if (username != null && !username.isEmpty()) {
+                String auth = username + ":" + password;
+                String encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.getBytes());
+                requestBuilder.header("Authorization", "Basic " + encodedAuth);
+            }
+            
+            HttpRequest request = requestBuilder.build();
+            
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                System.out.println("Deleted index: " + indexName);
+            } else {
+                System.err.println("GetQuick index deletion error: " + response.statusCode() + " - " + response.body());
+            }
+            
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Error deleting index in GetQuick: " + e.getMessage());
+            throw new Exception("Failed to delete index in GetQuick", e);
         }
     }
 
-    /**
-     * 获取索引统计信息
-     */
-    public Map<String, Object> getIndexStats() throws Exception {
-        String url = gqUrl + "/api/index/" + indexName + "/stats";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBasicAuth(username, password);
-        HttpEntity<String> requestEntity = new HttpEntity<>(headers);
-
-        ResponseEntity<Map> response = restTemplate.exchange(
-            url,
-            HttpMethod.GET,
-            requestEntity,
-            Map.class
-        );
-
-        if (response.getStatusCode().is2xxSuccessful()) {
-            return response.getBody();
-        } else {
-            throw new RuntimeException("Failed to get GetQuick index stats: " + response.getStatusCode());
-        }
-    }
-
-    /**
-     * 健康检查
-     */
-    public boolean isHealthy() {
-        try {
-            String url = gqUrl + "/api/health";
-            HttpHeaders headers = new HttpHeaders();
-            headers.setBasicAuth(username, password);
-            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
-
-            ResponseEntity<Map> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                requestEntity,
-                Map.class
-            );
-
-            return response.getStatusCode().is2xxSuccessful();
-        } catch (Exception e) {
-            return false;
-        }
-    }
-    
     /**
      * 发布索引
-     * 使索引对外生效（GetQuick 特定操作）
      */
     public void publishIndex() throws Exception {
         try {
-            System.out.println("发布 GetQuick 索引: " + indexName);
+            String url = baseUrl + "/api/index/" + indexName + "/publish";
             
-            // 构建发布请求
-            Map<String, Object> publishRequest = new HashMap<>();
-            publishRequest.put("indexName", indexName);
-            publishRequest.put("status", "published");
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString("{}"));
             
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBasicAuth(username, password);
-            
-            HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(publishRequest, headers);
-            
-            String url = gqUrl + "/api/index/" + indexName + "/publish";
-            ResponseEntity<Map> response = restTemplate.exchange(
-                url,
-                HttpMethod.POST,
-                requestEntity,
-                Map.class
-            );
-            
-            if (!response.getStatusCode().is2xxSuccessful()) {
-                throw new RuntimeException("Failed to publish GetQuick index: " + response.getStatusCode());
+            // 添加认证头
+            if (username != null && !username.isEmpty()) {
+                String auth = username + ":" + password;
+                String encodedAuth = java.util.Base64.getEncoder().encodeToString(auth.getBytes());
+                requestBuilder.header("Authorization", "Basic " + encodedAuth);
             }
             
-            System.out.println("GetQuick 索引发布成功: " + indexName);
-        } catch (Exception e) {
-            throw new RuntimeException("发布 GetQuick 索引失败", e);
+            HttpRequest request = requestBuilder.build();
+            
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                System.out.println("Published index: " + indexName);
+            } else {
+                System.err.println("GetQuick index publish error: " + response.statusCode() + " - " + response.body());
+            }
+            
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Error publishing index in GetQuick: " + e.getMessage());
+            throw new Exception("Failed to publish index in GetQuick", e);
         }
+    }
+
+    @Override
+    public Object getStats() {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("indexName", indexName);
+        stats.put("totalWritten", totalWritten);
+        stats.put("totalErrors", totalErrors);
+        return stats;
+    }
+
+    /**
+     * 关闭连接
+     */
+    public void close() throws Exception {
+        finishWrite();
+    }
+
+    /**
+     * 简单的 JSON 转换（实际项目中应使用 Jackson 等库）
+     */
+    private String convertToJson(Map<String, Object> data) {
+        // 这里应该使用 Jackson 或其他 JSON 库
+        // 为了简化，这里返回一个基本的 JSON 字符串
+        return "{\"documents\":" + data.get("documents") + ",\"batchSize\":" + data.get("batchSize") + "}";
     }
 }

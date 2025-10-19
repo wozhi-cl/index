@@ -34,8 +34,11 @@ jobs:
           $m2Path = "C:\Users\runneradmin\.m2"
           Compress-Archive -Path "$m2Path\repository" -DestinationPath "$m2Path\m2-repo.zip"
 
-      - name: Upload offline dependencies
-        uses: actions/upload-artifact@v4
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: offline-maven-repo
-          path: C:\Users\runneradmin\.m2\m2-repo.zip
+          tag_name: offline-deps-${{ github.run_number }}
+          name: "Offline Maven Dependencies ${{ github.run_number }}"
+          files: C:\Users\runneradmin\.m2\m2-repo.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

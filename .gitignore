@@ -137,7 +137,6 @@ $RECYCLE.BIN/
 
 # ===== Java =====
 *.class
-*.jar
 !/.mvn/wrapper/maven-wrapper.jar
 *.war
 *.nar

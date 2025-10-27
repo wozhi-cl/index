@@ -1,77 +1,42 @@
 @startuml
-title Spring MVC Framework + Application 完整调用链类图
+title 精简版 Spring Boot + MVC + Application 调用链类图（ApiResponse 属于 application 层）
 
 skinparam packageStyle rectangle
 skinparam classAttributeIconSize 0
 skinparam shadowing false
 
 ' ===========================
-' 外部请求节点
+' 启动层
+' ===========================
+class SpringApplication {
+    +run(Class<?> primarySource, String[] args)
+}
+
+class ApplicationContext {
+    +registerBeans()
+    +refresh()
+}
+
+' ===========================
+' 外部节点
 ' ===========================
 class "👤 User" as Client <<external>>
 class "🗄️ Database" as Database <<external>>
 
 ' ===========================
-' FRAMEWORK 层
+' FRAMEWORK 层（精简）
 ' ===========================
 class DispatcherServlet {
     +doDispatch(request, response)
-    +getHandler(request): HandlerExecutionChain
-    +render(modelAndView, response)
-}
-
-interface HandlerMapping {
-    +getHandler(request): HandlerExecutionChain
-}
-
-class RequestMappingHandlerMapping <<HandlerMapping>> {
-    +getHandler(request): HandlerExecutionChain
-}
-
-class HandlerExecutionChain {
-    -handler: Object
-    -interceptors: List<HandlerInterceptor>
-    +applyPreHandle()
-    +applyPostHandle()
-}
-
-interface HandlerInterceptor {
-    +preHandle(request, response, handler): boolean
-    +postHandle(request, response, handler, modelAndView)
-    +afterCompletion(request, response, handler, ex)
-}
-
-class MappedInterceptor <<HandlerInterceptor>> {
-    +preHandle()
-    +postHandle()
-    +afterCompletion()
 }
 
 interface HandlerAdapter {
     +supports(handler): boolean
-    +handle(request, response, handler): ModelAndView
+    +handle(request, response, handler): Object
 }
 
 class RequestMappingHandlerAdapter <<HandlerAdapter>> {
     +invokeHandlerMethod(handler, request, response): Object
-}
-
-interface ControllerAdvice <<annotation>>
-class GlobalExceptionHandler implements ControllerAdvice {
-    +handleException(e: Exception): ResponseEntity<ApiResponse>
-}
-
-class ApiResponse<T> {
-    -status: int
-    -message: String
-    -data: T
-    +success(data: T)
-    +error(msg: String)
-}
-
-class ResponseEntity<T> {
-    -body: T
-    -status: HttpStatus
 }
 
 class HttpMessageConverter {
@@ -79,7 +44,13 @@ class HttpMessageConverter {
     +read(requestBody, targetType)
 }
 
-class "Controller Method" as ControllerMethod
+class ResponseEntity<T> {
+    -body: T
+    -status: HttpStatus
+}
+
+class ResponseBody <<annotation>>
+class RestController <<annotation>>
 
 ' ===========================
 ' APPLICATION 层
@@ -103,50 +74,42 @@ package application {
 
     class User
     class UserDto
+
+    ' 自定义响应类
+    class ApiResponse<T> {
+        -status: int
+        -message: String
+        -data: T
+        +success(data: T)
+        +error(msg: String)
+    }
 }
 
 ' ===========================
-' 调用链（包含 Application）
+' 启动箭头
 ' ===========================
+SpringApplication --> ApplicationContext : 创建和刷新
+ApplicationContext --> DispatcherServlet : 注册 DispatcherServlet Bean
 
-' 用户请求入口
+' ===========================
+' 请求处理箭头（精简）
+' ===========================
 Client --> DispatcherServlet : HTTP Request
-
-' 查找 Handler
-DispatcherServlet --> HandlerMapping : getHandler()
-HandlerMapping --> RequestMappingHandlerMapping : 返回 HandlerExecutionChain
-RequestMappingHandlerMapping --> HandlerExecutionChain : 包含拦截器
-
-' 拦截器前置
-HandlerExecutionChain --> HandlerInterceptor : preHandle()
-HandlerExecutionChain --> MappedInterceptor : preHandle()
-
-' 调用适配器执行 Controller
 DispatcherServlet --> HandlerAdapter : handle(request,response,handler)
-HandlerAdapter --> RequestMappingHandlerAdapter : 调用具体方法
-RequestMappingHandlerAdapter --> HandlerExecutionChain : 调用拦截器
+HandlerAdapter --> RequestMappingHandlerAdapter : 调用 Controller 方法
 RequestMappingHandlerAdapter --> UserController : invokeHandlerMethod()
 
-' Application 层调用链
+' Application 调用链
 UserController --> UserServiceImpl : 调用 Service
 UserServiceImpl --> UserRepositoryJpa : 调用 Repository
 UserRepositoryJpa --> Database : 查询数据
 
-' 拦截器后置
-HandlerExecutionChain --> HandlerInterceptor : postHandle()
-HandlerExecutionChain --> MappedInterceptor : postHandle()
-HandlerExecutionChain --> HandlerInterceptor : afterCompletion()
-HandlerExecutionChain --> MappedInterceptor : afterCompletion()
-
-' 响应封装
+' 返回值处理
 UserController --> ApiResponse : 返回对象
-GlobalExceptionHandler --> ResponseEntity : 异常封装
-
-' HTTP 响应序列化
+UserController ..> ResponseBody : 方法返回值序列化
+UserController ..|> RestController : 类注解
 ApiResponse --> HttpMessageConverter : 序列化 JSON
 ResponseEntity --> HttpMessageConverter : 序列化 JSON
 DispatcherServlet --> HttpMessageConverter : 调用 write()
-
-' 返回客户端
 HttpMessageConverter --> Client : HTTP Response
 @enduml

@@ -1,0 +1,152 @@
+@startuml
+title Spring MVC Framework + Application 完整调用链类图
+
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+
+' ===========================
+' 外部请求节点
+' ===========================
+class "👤 User" as Client <<external>>
+class "🗄️ Database" as Database <<external>>
+
+' ===========================
+' FRAMEWORK 层
+' ===========================
+class DispatcherServlet {
+    +doDispatch(request, response)
+    +getHandler(request): HandlerExecutionChain
+    +render(modelAndView, response)
+}
+
+interface HandlerMapping {
+    +getHandler(request): HandlerExecutionChain
+}
+
+class RequestMappingHandlerMapping <<HandlerMapping>> {
+    +getHandler(request): HandlerExecutionChain
+}
+
+class HandlerExecutionChain {
+    -handler: Object
+    -interceptors: List<HandlerInterceptor>
+    +applyPreHandle()
+    +applyPostHandle()
+}
+
+interface HandlerInterceptor {
+    +preHandle(request, response, handler): boolean
+    +postHandle(request, response, handler, modelAndView)
+    +afterCompletion(request, response, handler, ex)
+}
+
+class MappedInterceptor <<HandlerInterceptor>> {
+    +preHandle()
+    +postHandle()
+    +afterCompletion()
+}
+
+interface HandlerAdapter {
+    +supports(handler): boolean
+    +handle(request, response, handler): ModelAndView
+}
+
+class RequestMappingHandlerAdapter <<HandlerAdapter>> {
+    +invokeHandlerMethod(handler, request, response): Object
+}
+
+interface ControllerAdvice <<annotation>>
+class GlobalExceptionHandler implements ControllerAdvice {
+    +handleException(e: Exception): ResponseEntity<ApiResponse>
+}
+
+class ApiResponse<T> {
+    -status: int
+    -message: String
+    -data: T
+    +success(data: T)
+    +error(msg: String)
+}
+
+class ResponseEntity<T> {
+    -body: T
+    -status: HttpStatus
+}
+
+class HttpMessageConverter {
+    +write(responseBody, response)
+    +read(requestBody, targetType)
+}
+
+class "Controller Method" as ControllerMethod
+
+' ===========================
+' APPLICATION 层
+' ===========================
+package application {
+    class UserController <<RestController>> {
+        {annotation} @RequestMapping("/users")
+        {annotation} @GetMapping
+        -userService: UserServiceImpl
+        +getUser(id: Long): ApiResponse<UserDto>
+    }
+
+    class UserServiceImpl <<Service>> {
+        -userRepository: UserRepositoryJpa
+        +getUserById(id: Long): User
+    }
+
+    class UserRepositoryJpa <<Repository>> {
+        +findById(id: Long): User
+    }
+
+    class User
+    class UserDto
+}
+
+' ===========================
+' 调用链（包含 Application）
+' ===========================
+
+' 用户请求入口
+Client --> DispatcherServlet : HTTP Request
+
+' 查找 Handler
+DispatcherServlet --> HandlerMapping : getHandler()
+HandlerMapping --> RequestMappingHandlerMapping : 返回 HandlerExecutionChain
+RequestMappingHandlerMapping --> HandlerExecutionChain : 包含拦截器
+
+' 拦截器前置
+HandlerExecutionChain --> HandlerInterceptor : preHandle()
+HandlerExecutionChain --> MappedInterceptor : preHandle()
+
+' 调用适配器执行 Controller
+DispatcherServlet --> HandlerAdapter : handle(request,response,handler)
+HandlerAdapter --> RequestMappingHandlerAdapter : 调用具体方法
+RequestMappingHandlerAdapter --> HandlerExecutionChain : 调用拦截器
+RequestMappingHandlerAdapter --> UserController : invokeHandlerMethod()
+
+' Application 层调用链
+UserController --> UserServiceImpl : 调用 Service
+UserServiceImpl --> UserRepositoryJpa : 调用 Repository
+UserRepositoryJpa --> Database : 查询数据
+
+' 拦截器后置
+HandlerExecutionChain --> HandlerInterceptor : postHandle()
+HandlerExecutionChain --> MappedInterceptor : postHandle()
+HandlerExecutionChain --> HandlerInterceptor : afterCompletion()
+HandlerExecutionChain --> MappedInterceptor : afterCompletion()
+
+' 响应封装
+UserController --> ApiResponse : 返回对象
+GlobalExceptionHandler --> ResponseEntity : 异常封装
+
+' HTTP 响应序列化
+ApiResponse --> HttpMessageConverter : 序列化 JSON
+ResponseEntity --> HttpMessageConverter : 序列化 JSON
+DispatcherServlet --> HttpMessageConverter : 调用 write()
+
+' 返回客户端
+HttpMessageConverter --> Client : HTTP Response
+@enduml
